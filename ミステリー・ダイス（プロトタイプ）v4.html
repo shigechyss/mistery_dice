@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ミステリー・ダイス（プロトタイプ）</title>
+<style>
+:root{--bg:#e8ebe7;--card:#f6f8f5;--ink:#1c2430;--mut:#5d6a73;--acc:#2f5d62;--ng:#a4452c;--ln:#c3ccc6;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--card:#18202b;--ink:#e3e7ea;--mut:#93a1ac;--acc:#7fc4bd;--ng:#e2876b;--ln:#2c3846;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10151c;--card:#18202b;--ink:#e3e7ea;--mut:#93a1ac;--acc:#7fc4bd;--ng:#e2876b;--ln:#2c3846;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.9 "Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
+main{max-width:620px;margin:0 auto;padding:18px 16px 40px}
+h1{font-size:1.5rem;margin:.2em 0;letter-spacing:.08em}
+p{margin:.6em 0}.mut{color:var(--mut);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:4px;padding:12px 16px;margin:14px 0}
+button{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--ln);border-radius:4px;padding:10px 14px;cursor:pointer}
+button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.ch{display:block;width:100%;text-align:left;margin:8px 0;border-left:4px solid var(--acc)}
+.pri{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.st{display:inline-block;margin:2px 10px 2px 0}.st button{padding:0 8px;margin-left:4px}
+.dice{text-align:center}.d{font-size:5.5rem;line-height:1.2;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+.ok{color:var(--acc);font-size:1.6rem;font-weight:700}.ng{color:var(--ng);font-size:1.6rem;font-weight:700}
+.endbox{margin:24px 0;padding:18px 12px;text-align:center;border-top:3px double var(--acc);border-bottom:3px double var(--acc);cursor:default;user-select:none}
+.endbox .k{font-size:.8rem;letter-spacing:.3em;color:var(--mut)}.endbox .tt{font-size:1.6rem;font-weight:700;letter-spacing:.15em;color:var(--acc);margin:.2em 0}
+.endbox.bad{border-color:var(--ng)}.endbox.bad .tt{color:var(--ng)}
+textarea{width:100%;box-sizing:border-box;min-height:140px;font:13px/1.5 monospace;background:var(--card);color:var(--ink);border:1px solid var(--ln);padding:8px}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}.sgi{display:flex;gap:4px}.sgi button:first-child{flex:1;text-align:left}
+.dl{display:flex;gap:10px;align-items:flex-start;margin:.7em 0}.av{flex:none;border-radius:50%;object-fit:cover;background:var(--acc);color:var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700}
+.btnrow{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 6px}
+summary{cursor:pointer}input[type=checkbox]{width:18px;height:18px;vertical-align:middle}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const STATS=['観察','推理','話術','体力','異能'];
+const STAT_INFO={観察:'書斎や現場を調べる判定に加算。手がかりを見つけやすくなる。',推理:'最後の追い詰めの判定に加算。初期値（2）より上げた分が、そのまま追及力に加わる。',話術:'聞き込みや追い詰めの判定に加算。証言を引き出しやすくなる。',体力:'屋外の調査など、体力が要る判定に加算。',異能:'物語世界に入るたび、直感・霊力・魔力などの姿に変わる特別な力。その世界ならではの判定に加算。'};
+const KIND={true:'真相エンディング',good:'通常クリア',bad:'バッドエンディング'};
+const BACK=[{label:'調査に戻る',next:'hub'}];
+const R=(g,s,t)=>({gain:g,strong:s,text:t,choices:BACK});
+const K=(label,hide,stat,dc,ok,ng,req)=>{const c={label,hide,check:{stat,dc},success:ok,fail:ng};if(req)c.require=[req];return c};
+const STORY={format_version:1,id:'sample-yuigon',title:'消えた遺言書',genre:'洋館ミステリー',world:{name:'嵐の洋館ミステリー',special:'直感',desc:'ふとした違和感に気づく勘の力。判定に成功するとひらめきが2つ貯まる。',intro:'助手「所長、嵐の洋館……いかにも何か起きそうですね」\n探偵「油断するな。ここから先は、手がかりだけが頼りだ」'},author:'サンプル',difficulty:4,
+suspects:['隆','美咲','佐伯'],
+cast:[{n:'黒川 源蔵',r:'当主',d:'事業で財を成した黒川家の当主。遺言書をめぐり、家族に不穏な空気を残した。'},{n:'隆',r:'長男',d:'多額の借金を抱え、父から勘当寸前だった。気性は荒いが、どこか抜けている。'},{n:'美咲',r:'長女',d:'家業と父を支えてきたが、報われずに疲れている。'},{n:'佐伯',r:'執事',d:'長年黒川家に仕える忠実な執事。当主の信頼が厚い。'}],
+clues:{
+c_glove:{t:'金庫の手袋の跡',who:1,d:'金庫に濡れた女物の手袋の跡がはっきり残っている。外にいた人物だ。',w:'金庫に手の跡のようなものがあるが、誰のものか分からない。'},
+c_ash:{t:'暖炉の燃え残り',who:1,d:'署名部分が燃え残った遺言書。何者かが燃やそうとして燃やしきれなかった。',w:'暖炉に紙片らしきものが燃えている。'},
+c_ink:{t:'佐伯の万年筆とインク染み',who:2,d:'机に佐伯が肌身離さず使う万年筆と、乾ききっていないインクの染み。今夜、佐伯がここで清書をしていた。',w:'机に万年筆とインクの染みがある。まだ新しいようだが、誰のものかは分からない。'},
+c_foot:{t:'窓の下の足跡',who:0,d:'窓の下に大きな男物の足跡。だが窓は内側から施錠されたままだ。',w:'足跡のようなものが雨に流されかけている。'},
+c_takashi_say:{t:'隆の証言',who:0,d:'「今夜はずっと部屋で寝ていた」と隆は言い切った。',w:'隆は目を逸らし、「寝ていたはずだ」と繰り返した。'},
+c_key:{t:'書斎の鍵の貸し出し',who:1,d:'佐伯「今夜、美咲様に書斎の鍵をお貸ししました」',w:'佐伯「鍵は誰かがお借りになったかもしれません」と濁した。'},
+c_saeki_say:{t:'佐伯の証言',who:2,d:'「今夜、私は書斎に入っておりません」と佐伯は断言した。',w:'佐伯は書斎の話を避けている。'},
+c_phone:{t:'離れの痕跡',who:0,d:'離れに泥だらけの靴と、借金取りへの通話の痕跡がある。',w:'離れに誰かがいた形跡があるが、詳しくは分からない。'},
+c_will2:{t:'新しい遺言書',who:-1,d:'肖像画の裏にあった新しい遺言書。隆を許し、二人に分ける内容だった。',w:''}},
+contradictions:[{a:'c_takashi_say',b:'c_phone',to:'ct_takashi'},{a:'c_saeki_say',b:'c_ink',to:'ct_saeki'}],
+scenes:{
+start:{text:'嵐の夜、山あいの洋館。深夜、当主・黒川源蔵の金庫から、朝に公開されるはずの遺言書が消えているのが見つかった。\n橋は流され、外部との連絡は取れない。\n助手「うわぁ、完全に孤立じゃないですか……。ねえ所長、この状況、前にテレビの特番で見ましたよ」\n探偵「ああ。屋敷にいるのは長男の隆、長女の美咲、執事の佐伯、そして我々だ。犯人はこの中にいる」\n朝までに、謎を解き明かさなければならない。',choices:[{label:'調査を始める',next:'hub'}]},
+hub:{text:'朝までに犯人を突き止めなければならない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+K('書斎を調べる','s1','観察',10,'a_ok','a_ng'),
+K('机の周りを重点的に調べる','s5','観察',9,'a2_ok','a2_ng','s1'),
+K('窓の外を確かめる','s2','体力',9,'b_ok','b_ng'),
+K('隆に話を聞く','s3','話術',11,'c_ok','c_ng'),
+K('佐伯に話を聞く','s4','話術',11,'d_ok','d_ng'),
+K('離れを調べる','s6','観察',11,'e_ok','e_ng'),
+{label:'肖像画の裏を調べる',require:['portrait'],hide:'s7',next:'portrait'},
+K('直感に従って屋敷を歩く','i1','異能',10,'i_ok','i_ng'),
+{label:'助手に意見を聞く',hide:'s8',next:'think'},
+{label:'犯人を指摘する',next:'accuse'}]},
+a_ok:R(['s1'],['c_glove','c_ash','c_ink'],'金庫に手袋の跡、暖炉に燃え残り、机にはインク染み。書斎で何かが起きたのは間違いない。\n助手「手袋の跡……しかも濡れてますね」'),
+a_ng:R(['s1','c_glove','c_ash'],[],'書斎は荒らされていたが、はっきりした発見はない。\n助手「うーん、見落としがありそうですね。机の周りをもう少し見ませんか？」'),
+a2_ok:R(['s5'],['c_ink'],'机の上に、佐伯の名が入った万年筆と、インクの染みがあった。\n助手「そういえば最近、テレビのサスペンス番組で見たんですけど、インクの乾き具合で、いつ書かれたか分かるらしいですよ。……これ、まだ乾いてません！」\n探偵「今夜、誰かがここで書き物をしていたということだ。この万年筆は、佐伯さんが肌身離さず使っているものだな」'),
+a2_ng:R(['s5','c_ink'],[],'机にインクの染みと万年筆がある。誰のものか、いつのものかは分からない。\n助手「テレビで見たんですけど、インクの乾き具合で書かれた時刻が分かるとか……私には分かりませんけど！」'),
+b_ok:R(['s2'],['c_foot'],'窓の下に大きな足跡。だが窓は内側から鍵がかかっている。\n助手「外はすごい泥濘なのに、窓の内側は綺麗ですね……。密室トリックの定番ってやつでしょうか？」'),
+b_ng:R(['s2','c_foot'],[],'雨で足跡が流れかけている。\n助手「所長、この窓、鍵がかかったままなのが気になります」'),
+c_ok:R(['s3'],['c_takashi_say'],'隆は強気に言い切った。「今夜はずっと部屋で寝ていた」\n助手「（堂々としすぎて、逆に怪しいですね）」'),
+c_ng:R(['s3','c_takashi_say'],[],'隆は目を逸らした。「……寝ていたはずだ」\n助手「（歯切れが悪いですね……）」'),
+d_ok:R(['s4'],['c_key','c_saeki_say'],'佐伯は答えた。「今夜、美咲様に鍵をお貸ししました。私は書斎に入っておりません」\n助手「（鍵を借りたのは美咲さん……メモメモ）」'),
+d_ng:R(['s4','c_key','c_saeki_say'],[],'佐伯は口ごもった。「鍵は……誰かが借りたかもしれません。私は書斎には入っておりません」\n助手「（執事さん、何か隠してません？）」'),
+e_ok:R(['s6'],['c_phone'],'離れに泥だらけの靴と、借金取りへの通話の痕跡があった。\n助手「あ、この雑誌の特集、借金地獄からの脱出方法とか載ってましたけど……いや、なんでもありません」'),
+e_ng:R(['s6','c_phone'],[],'離れに誰かがいた形跡がある。詳しくは分からない。\n助手「ここ、誰かが慌てていた感じですね」'),
+ct_takashi:R([],[],'?c_phone>=2|探偵「隆さん、今夜はずっと部屋で寝ていたと言いましたね。だが、離れにはあなたの痕跡と、通話の記録があった」\n?c_phone<2|探偵「隆さん、今夜はずっと部屋で寝ていたと言いましたね。だが、離れには誰かがいた形跡があった。……心当たりはありませんか？」\n隆「……っ！　友人に借金の相談の電話をしていただけだ！　父さんの書斎の灯りが気になって覗いたが、入ってはいない！」\n助手「（嘘はつきましたけど、動機とは少しズレてますね）」'),
+ct_saeki:R(['portrait'],[],'?c_ink>=2|探偵「佐伯さん、今夜は書斎に入っていないと言いましたね。しかし、机には名入りの万年筆があり、インクはまだ乾いていなかった。あなたの愛用品ですね」\n?c_ink<2|探偵「佐伯さん、今夜は書斎に入っていないと言いましたね。しかし、机には万年筆とインクの染みがあった。……心当たりはありませんか？」\n?c_ink>=2|佐伯「……脱帽です。実は、旦那様の命で『新しい遺言書』を清書しておりました。保管は、肖像画の裏の隠し棚に」\n?c_ink<2|佐伯「……ごまかせませんな。あの万年筆は私のものです。旦那様の命で『新しい遺言書』を清書しておりました。保管は、肖像画の裏の隠し棚に」\n助手「新しい遺言書……？」'),
+portrait:R(['s7'],['c_will2'],'執事の言葉を元に肖像画の裏を調べると、隠し棚から一通の封筒が見つかった。\n——『新しい遺言書』。隆を許し、財産を姉弟で二分するという当主の真意が記されていた。\n助手「金庫から盗まれた古い遺言書と、内容が全然違いますよ……。一体、誰が何のために？」'),
+i_ok:{gain:['i1'],hunch:2,text:'屋敷の廊下を歩くうち、ふと違和感が背筋をなぞった。「女物」「鍵」「窓」……ばらばらの手がかりが、同じ方向を指している気がする。\n助手「所長、今、何か閃きました？」\n勘が冴えた。（ひらめき+2）',choices:BACK},
+i_ng:R(['i1'],[],'何かが引っかかる。けれど、言葉にならない。\n助手「焦らなくて大丈夫ですよ、所長」'),
+think:{gain:['s8'],hunch:1,text:'助手「所長、ちょっと整理しませんか？　濡れた女物の手袋に、書斎の鍵。足跡は男物ですけど、窓は閉まったまま……」\n探偵「食い違う証言を、手帳で突き合わせてみよう」\n助手の雑学が、ひらめきのきっかけになった。（ひらめき+1）',choices:BACK},
+accuse:{text:'全員を居間に集めた。\n助手「所長、誰を指摘しますか……？」',choices:[
+{label:'犯人は長男の隆だ',next:'end_wrong'},
+{label:'犯人は執事の佐伯だ',next:'end_wrong'},
+{label:'犯人は長女の美咲だ',next:'confront'},
+{label:'まだ調べる',next:'hub'}]},
+confront:{text:'探偵「すべては分かっている、美咲さん」\n美咲「……どうして、私のしたことが……」\n美咲の肩が震えた。手がかりと整理した推理が多いほど、言い逃れは難しい。',choices:[
+{label:'手がかりを突きつけて追い詰める',check:{stat:'話術',dc:14,power:1},success:'motive',fail:'end_bad'}]},
+motive:{text:'美咲は唇を噛み、言葉を探している。\n助手「あなたが盗んだんですよね。でも、なぜ……？」',choices:[
+{label:'新しい遺言書を示す',require:['c_will2'],next:'end_true'},
+{label:'動機は聞かず、自白だけを受け取る',next:'end_good'}]},
+end_true:{ending:{title:'真相解明',kind:'true'},text:'美咲「……私はただ、弟を守りたかっただけなのよ！　勘当の話を聞いて、それで……」\n探偵「その必要はなかった。父親は、すでに弟を許していたのだから」\n新しい遺言書を見た美咲は、その場で崩れ落ちた。\n助手「……盗む必要なんて、なかったんですね」\n嵐が過ぎ去った朝、静寂の中、姉弟は新しい光の差す部屋で遺言書を読み始めた。'},
+end_good:{ending:{title:'自白',kind:'good'},text:'美咲は静かに自白した。\n助手「動機は……話してくれませんね」\n真意は語られないまま、事件は幕を閉じた。'},
+end_bad:{ending:{title:'逃走',kind:'bad'},text:'美咲は黙り込み、朝になって橋が復旧すると同時に姿を消した。\n助手「所長、逃げられちゃいましたよ……」'},
+end_wrong:{ending:{title:'冤罪',kind:'bad'},text:'あなたの指摘に二人は凍りついた。遺言書は戻らず、屋敷の信頼も失った。\n助手「所長……見当違いでしたね」'}}};
+
+const STORY2={format_version:1,id:'sample-orgel',title:'静寂のオルゴール',genre:'山荘ミステリー',world:{name:'雪山荘の美術館ミステリー',special:'直感',desc:'ふとした違和感に気づく勘の力。判定に成功するとひらめきが2つ貯まる。',intro:'助手「所長、この静けさ……なんだか雪が音を吸い込んでるみたいです」\n探偵「静かな場所ほど、小さな嘘がよく響く」'},author:'サンプル',difficulty:5,
+suspects:['真壁','霧島','初音'],
+cast:[{n:'当主',r:'美術館の主',d:'特製オルゴールを何より大切にしていた収集家。'},{n:'真壁',r:'画家',d:'当主の才能への嫉妬を隠さない。気が荒く、言動がいかにも怪しい。'},{n:'霧島',r:'ギャラリーオーナー',d:'冷徹な実利主義者。お金にルーズだという噂がある。'},{n:'初音',r:'家政婦',d:'物静かで、いつもおどおどとお茶を淹れている。'},{n:'管理人',r:'館の管理人',d:'夜の見回り中に襲われ、縛られた状態で見つかった。'}],
+clues:{
+c_paint:{t:'アトリエの特注塗料',who:0,d:'パレットに、真壁だけが使う特注の塗料が乾ききらずに残っている。今夜、真壁がここで作業していた。',w:'アトリエに塗料の匂いがする。まだ新しいようだが、誰のものかは分からない。'},
+c_makabe_say:{t:'真壁の証言',who:0,d:'「今夜はアトリエに近づいてもいない」と真壁は怒鳴った。',w:'真壁は舌打ちし、「寝てたよ」とだけ答えた。'},
+c_debt:{t:'霧島の借金資料',who:1,d:'オーナー室に、霧島宛ての多額の借金の催促状が積まれている。',w:'机に書類の山があるが、中身までは確認できなかった。'},
+c_kirishima_say:{t:'霧島の証言',who:1,d:'「経営は順風満帆だ。金に困ってなどいない」と霧島は言い切った。',w:'霧島は冷たく言った。「私の経営に問題などない」'},
+c_notebook:{t:'初音の手帳',who:2,d:'使用人室の引き出しの奥に、全員の秘密と弱みがびっしり書かれた手帳。十年前の事故の記事が挟まっている。',w:'引き出しの奥に手帳のようなものがあるが、中身までは見られなかった。'},
+c_cup:{t:'管理人のカップ',who:2,d:'縛られた管理人のそばのカップに眠り薬の痕跡。管理人は「最後に飲んだのは温かいお茶だった」と話す。屋敷でお茶を淹れるのは、いつも初音だけだ。',w:'管理人のそばにカップが転がっている。何かの跡があるが、詳しくは分からない。'},
+c_hatsune_say:{t:'初音の証言',who:2,d:'「今夜は、どなたにもお茶をお出ししておりません」と初音は震える声で言った。',w:'初音はおどおどと、「お茶は……出していないと思います」と答えた。'},
+c_cam:{t:'切り取られた映像',who:2,d:'監視室の映像は鍵を使って編集されている。鍵を持つのは、当主、管理人、そして家政婦だけだ。',w:'監視室の映像が切り取られている。編集の方法までは分からない。'},
+c_box:{t:'隠し部屋のオルゴール',who:-1,d:'楽器室の隠し部屋で見つかった、盗まれたオルゴール。',w:''}},
+contradictions:[{a:'c_makabe_say',b:'c_paint',to:'ct_makabe'},{a:'c_kirishima_say',b:'c_debt',to:'ct_kirishima'},{a:'c_hatsune_say',b:'c_cup',to:'ct_hatsune'}],
+scenes:{
+start:{text:'雪に閉ざされた山荘の美術館。当主の宝である「特製オルゴール」が盗まれ、見回りの管理人は縛り上げられていた。監視カメラの映像も切り取られている。\n屋敷にいるのは、荒くれ者の画家・真壁、冷徹なオーナー・霧島、おとなしい家政婦の初音、そして我々だけだ。\n助手「うう、寒いです……。それにしても、いかにも怪しい人が揃ってますね」\n探偵「ああ。だが、ミステリーの鉄則を忘れるな。『一番怪しくない人間』こそが、最も巧妙に動いている場合がある」\n朝が来る前に、全員の裏の顔と隠された秘密を暴かなければならない。',choices:[{label:'調査を始める',next:'hub'}]},
+hub:{text:'吹雪は止まない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+K('アトリエを調べる','h1','観察',10,'a_ok','a_ng'),
+K('真壁に話を聞く','h2','話術',11,'b_ok','b_ng'),
+K('オーナー室を調べる','h3','観察',10,'c_ok','c_ng'),
+K('霧島に話を聞く','h4','話術',11,'d_ok','d_ng'),
+K('使用人室（初音の部屋）を調べる','h5','観察',11,'e_ok','e_ng'),
+K('初音に話を聞く','h6','話術',10,'f_ok','f_ng'),
+K('管理人の現場を調べる','h7','観察',10,'g_ok','g_ng'),
+K('監視室を調べる','h8','観察',10,'h_ok','h_ng'),
+{label:'楽器室を調べる',require:['room'],hide:'h9',next:'room'},
+K('直感に従って館内を歩く','i1','異能',10,'i_ok','i_ng'),
+{label:'助手に意見を聞く',hide:'h0',next:'think'},
+{label:'犯人を指摘する',next:'accuse'}]},
+a_ok:R(['h1'],['c_paint'],'アトリエのパレットに、真壁だけが使う特注の塗料が乾ききらずに残っていた。\n助手「テレビのドキュメンタリーで見たんですけど、絵の具の成分を調べると、いつ作業したか分かるらしいですよ……って、真壁さん、すごい剣幕で怒ってますね」'),
+a_ng:R(['h1','c_paint'],[],'アトリエには塗料の匂いが残っているが、はっきりしたことは分からない。\n助手「真壁さん、こっちを睨んでますよ……」'),
+b_ok:R(['h2'],['c_makabe_say'],'真壁は怒鳴った。「今夜はアトリエに近づいてもいない！　俺を疑うのか！」\n助手「（いかにも怪しいですけど、怪しすぎる気も……）」'),
+b_ng:R(['h2','c_makabe_say'],[],'真壁は舌打ちし、吐き捨てた。「寝てたよ」\n助手「（機嫌最悪ですね……）」'),
+c_ok:R(['h3'],['c_debt'],'机の上に、霧島宛ての多額の借金の催促状が積まれていた。\n助手「この書類、借金の催促状じゃないですか？　オーナー、経営がかなり傾いていたみたいです」'),
+c_ng:R(['h3','c_debt'],[],'机に書類の山があるが、中身までは確認できなかった。\n助手「あの書類、何だか気になりますね……」'),
+d_ok:R(['h4'],['c_kirishima_say'],'霧島は冷たく言い切った。「経営は順風満帆だ。金に困ってなどいない」\n助手「（冷徹ですね……。でも、事件の夜のアリバイは曖昧なままです）」'),
+d_ng:R(['h4','c_kirishima_say'],[],'霧島は目を細めた。「私の経営に問題などない」\n助手「（取り付く島がないですね……）」'),
+e_ok:R(['h5'],['c_notebook'],'初音の部屋は驚くほど整頓されていた。引き出しの奥から、全員の秘密と弱みがびっしり書かれた手帳が見つかった。十年前の事故の記事も挟まっている。\n助手「わあ、すごく綺麗に整理されてます。……って、あれ？　この手帳、全員の秘密や弱みがびっしり書いてありません……？　いや、まさか見間違いですよね」'),
+e_ng:R(['h5','c_notebook'],[],'部屋は綺麗に整頓されている。引き出しの奥に手帳のようなものがあるが、中身までは見られなかった。\n助手「わあ、綺麗……。あの手帳、ちょっと気になりますけど」'),
+f_ok:R(['h6'],['c_hatsune_say'],'初音は震える声で言った。「今夜は、どなたにもお茶をお出ししておりません……」\n助手「（おどおどしてて可哀想……。さすがに初音さんは関係ないですよね）」'),
+f_ng:R(['h6','c_hatsune_say'],[],'初音はおどおどと答えた。「お茶は……出していないと思います」\n助手「（頼りない感じですね……）」'),
+g_ok:R(['h7'],['c_cup'],'縛られた管理人のそばのカップに、眠り薬の痕跡があった。管理人は「最後に飲んだのは温かいお茶だった」と話している。屋敷でお茶を淹れるのは、いつも初音だけだ。\n助手「眠り薬入りのお茶……？」'),
+g_ng:R(['h7','c_cup'],[],'管理人のそばにカップが転がっている。何かの跡があるが、詳しくは分からない。\n助手「このカップ、後でもう一度考えましょう」'),
+h_ok:R(['h8'],['c_cam'],'監視室の映像は、鍵を使って編集されていた。鍵を持つのは、当主、管理人、そして家政婦だけだ。\n助手「当主と管理人さんは被害者側ですから……」'),
+h_ng:R(['h8','c_cam'],[],'監視室の映像が切り取られている。編集の方法までは分からない。\n助手「手慣れた仕事に見えますけど……」'),
+ct_makabe:R(['ct1'],[],'?c_paint>=2|探偵「真壁さん、今夜はアトリエに近づいてもいないと言いましたね。だが、パレットにはあなたしか使わない塗料が乾ききらずに残っていた」\n?c_paint<2|探偵「真壁さん、今夜はアトリエに近づいてもいないと言いましたね。だが、アトリエの塗料はまだ新しいようだ。……心当たりは？」\n真壁「……っ！　借金返済のために、絵の贋作を作ろうとしていただけだ！　オルゴールなんて盗んでない！　あの家政婦にだけは見られたかもしれんが……」\n助手「（別の隠し事のために嘘をついていたんですね。……家政婦さん？）」'),
+ct_kirishima:R(['ct2'],[],'?c_debt>=2|探偵「霧島さん、経営は順風満帆だと言いましたが、この催促状は何ですか」\n?c_debt<2|探偵「霧島さん、経営は順風満帆だと言いましたが、オーナー室の書類について、説明していただけますか」\n霧島「ぐっ……！　保険金目当てで館の美術品を処分しようとしたが、肝心のオルゴールが先に盗まれたんだ！　この計画は、帳簿を整理していたあの家政婦くらいしか知らん……」\n助手「（オーナーも別の動機で動いていましたが、犯人ではなさそうですね。……また家政婦さん？）」'),
+ct_hatsune:R(['room'],[],'?c_cup>=2|探偵「初音さん、今夜はどなたにもお茶を出していないと言いましたね。だが、管理人のカップには眠り薬の痕跡があり、彼は温かいお茶を飲んだと言っている。屋敷でお茶を淹れるのは、あなただけだ」\n?c_cup<2|探偵「初音さん、今夜はどなたにもお茶を出していないと言いましたね。だが、管理人のそばのカップが気になる。……本当に、誰にも出していない？」\n初音「そ、それは……。わ、私は、楽器室の掃除に行かなくては……」\n助手「（今、あわてて楽器室に行こうとしましたね……）」'),
+room:R(['h9'],['c_box'],'楽器室の壁に、わずかな隙間があった。押し開けると隠し部屋があり、盗まれたオルゴールが静かに眠っていた。\n助手「あった！　……でも、どうして初音さんが？」'),
+i_ok:{gain:['i1'],hunch:2,text:'館内を歩くうち、直感が囁いた。声を荒らげる者ほど、案外何も隠していない。本当に隠したい者は、静かに「手元」を見せないものだ。\n助手「所長、今、何か閃きました？」\n勘が冴えた。（ひらめき+2）',choices:BACK},
+i_ng:R(['i1'],[],'何かが引っかかる。けれど、言葉にならない。\n助手「あの静けさ、どこかで……いえ、気のせいかも」'),
+think:{gain:['h0'],hunch:1,text:'助手「所長、整理しませんか？　真壁さんも霧島さんも、いかにも怪しいですけど……」\n?ct1>=1|助手「真壁さんの話に、家政婦さんが出てきましたね……」\n?ct2>=1|助手「霧島さんの話にも、家政婦さんが……」\n?c_cup>=1|助手「管理人さんが飲んだお茶……屋敷でお茶を淹れるのは、確か……」\n探偵「食い違う証言を、手帳で突き合わせてみよう」\n助手の雑学が、ひらめきのきっかけになった。（ひらめき+1）',choices:BACK},
+accuse:{text:'全員を談話室に集めた。\n助手「所長、誰を指摘しますか……？」',choices:[
+{label:'犯人は画家の真壁だ',next:'end_wrong'},
+{label:'犯人はオーナーの霧島だ',next:'end_wrong'},
+{label:'犯人は家政婦の初音だ',next:'confront'},
+{label:'まだ調べる',next:'hub'}]},
+confront:{text:'探偵「初音さん、お話があります」\n初音は、いつものようにおどおどと盆を抱えている。だが、その目だけは静かだった。\n手がかりと整理した推理が多いほど、言い逃れは難しい。',choices:[
+{label:'手がかりを突きつけて追い詰める',check:{stat:'話術',dc:14,power:1},success:'motive',fail:'end_bad'}]},
+motive:{text:'初音は黙ったまま、盆の縁を指でなぞっている。\n助手「所長、これで終わりですか？　それとも、まだ何かありますか……？」',choices:[
+{label:'オルゴールと、全員の秘密のつながりを突きつける',require:['c_box','ct1','ct2'],next:'end_true'},
+{label:'犯行の自白だけを受け取る',next:'end_good'}]},
+end_true:{ending:{title:'静寂の黒幕',kind:'true'},text:'探偵「すべては繋がった。真壁さんの贋作も、霧島さんの借金も、あなたが裏で糸を引いていたことだね、初音さん」\n初音は、いつものおどおどした態度をふっと消し、静かに微笑んだ。\n初音「……気づくのが遅くてよろしかったこと。あの人たちは、私の家族を追い詰めた共犯者ですもの。当然の報いよ」\n助手「えっ、あの初音さんが黒幕だったなんて……！　一番怪しくなさそうに見えたのは、計算づくだったんだ！」\n隠し部屋から見つかったオルゴールと、彼女の復讐の全貌。誰もが疑わなかった「最も無害な存在」がすべての中心だったという事実に、山荘の冷たい空気が静まり返った。'},
+end_good:{ending:{title:'犯行の自白',kind:'good'},text:'初音は静かに犯行を認めた。\n助手「でも、どうして……？　真壁さんや霧島さんとは、何の関係が……」\n彼女は何も語らないまま、事件は幕を閉じた。'},
+end_bad:{ending:{title:'消えた家政婦',kind:'bad'},text:'初音は穏やかに微笑んだだけで、何も語らなかった。吹雪が止んだ朝、彼女の姿は山荘から消えていた。\n助手「あんなにおとなしそうだったのに……」'},
+end_wrong:{ending:{title:'見当違い',kind:'bad'},text:'指摘は的外れだった。オルゴールは戻らず、吹雪が止んだ朝、静かに山荘を去る家政婦の背中を、あなたはただ見送るしかなかった。\n助手「所長……見当違いでしたね」'}}};
+
+const STORY3={format_version:1,id:'sample-onmyo',title:'平安京・宵闇の式神呪',genre:'陰陽道・和風怪異ミステリー',author:'サンプル',difficulty:6,
+world:{name:'平安京・陰陽寮ミステリー',special:'霊力',desc:'万物に宿る妖気や気配を感じ取る力。判定に成功するとひらめきが2つ貯まる。',intro:'助手「所長、雰囲気が一変しましたね……！　牛車が行き交い、夜の闇がどこか深いです」\n探偵「ここは平安の都・京だ。見えるものばかりが真実とは限らん。霊力を研ぎ澄ませ」'},
+suspects:['晴明','道長','桔梗'],
+cast:[{n:'公卿',r:'玉の持ち主',d:'龍鳴の玉を陰陽寮に預けている。事件の報せに顔色を失った。'},{n:'晴明',r:'陰陽生',d:'若き天才陰陽師。傲慢で、怪しげな式神の実験を繰り返し、周囲から気味悪がられている。'},{n:'道長',r:'陰陽頭',d:'陰陽寮のトップ。政治的な野心が強く、権力者との繋がりを欲している。'},{n:'桔梗',r:'巫女',d:'お祓いや掃除を健気にこなす控えめな巫女。誰からも愛されている。'},{n:'武士',r:'蔵の見張り番',d:'開かずの蔵を守っていたが、昏睡状態で見つかった。'}],
+clues:{
+c_log:{t:'晴明の実験記録',who:0,d:'工房に、昨夜の式神召喚の記録。成功の欄は空白で、失敗の痕跡ばかりだ。',w:'工房に実験の記録らしきものがあるが、成否までは読めなかった。'},
+c_say_sei:{t:'晴明の証言',who:0,d:'「昨夜は夜通し、強力な式神の召喚に成功していた」と晴明は胸を張った。',w:'晴明は鼻で笑い、「天才の実験に決まっている」とだけ答えた。'},
+c_letter:{t:'道長の献上状',who:1,d:'陰陽頭の部屋に、龍鳴の玉を権力者へ献上する旨の書状の控えがある。',w:'文机に書状の山があるが、中身までは確認できなかった。'},
+c_say_mich:{t:'道長の証言',who:1,d:'「龍鳴の玉など、そんな宝があることすら知らなかった」と道長は言い切った。',w:'道長は扇で口元を隠し、「知らぬ」と短く答えた。'},
+c_scroll:{t:'桔梗の巻物',who:2,d:'巫女の部屋に、龍鳴の玉にまつわる言い伝えを書き写した巻物。「人の野心に使わせてはならない」と記されている。',w:'巫女の部屋に巻物があるが、中身までは見られなかった。'},
+c_incense:{t:'武士の衣の香',who:2,d:'倒れた武士の衣に、今夜焚かれたばかりの特製の香が染み込んでいる。調合を知るのは桔梗だけだ。',w:'武士の衣から香の匂いがする。新しいようだが、誰のものかは分からない。'},
+c_say_kik:{t:'桔梗の証言',who:2,d:'「夜は祈祷をしていて、蔵には近づいておりません」と桔梗はそっと言った。',w:'桔梗はうつむき、「蔵には……行っていないと思います」と答えた。'},
+c_gem:{t:'祠の龍鳴の玉',who:-1,d:'境内の祠の奥で見つかった、消えた龍鳴の玉。',w:''}},
+contradictions:[{a:'c_say_sei',b:'c_log',to:'ct_sei'},{a:'c_say_mich',b:'c_letter',to:'ct_mich'},{a:'c_say_kik',b:'c_incense',to:'ct_kik'}],
+scenes:{
+start:{text:'闇に包まれた平安京。陰陽寮の深奥に位置する「開かずの蔵」から、秘宝『龍鳴の玉』が消え去った。\n蔵を守っていた武士は怪異の手にかかったように倒れ、現場には黒い呪符が散乱している。\n助手「うわぁ、本物の陰陽師の世界ですよ！　でも、呪いとか式神とか、本当にいるんでしょうか……？」\n探偵「惑わされるな。怪異の裏には必ず人間の意図がある。怪しい陰陽生、権力欲の強い陰陽頭、そして控えめな巫女……犯人はこの中にいる」',choices:[{label:'調査を始める',next:'hub'}]},
+hub:{text:'嵐の夜の陰陽寮。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+K('工房を調べる','h1','観察',10,'a_ok','a_ng'),
+K('晴明に話を聞く','h2','話術',11,'b_ok','b_ng'),
+K('陰陽頭の部屋を調べる','h3','観察',10,'c_ok','c_ng'),
+K('道長に話を聞く','h4','話術',11,'d_ok','d_ng'),
+K('巫女の部屋を調べる','h5','観察',11,'e_ok','e_ng'),
+K('桔梗に話を聞く','h6','話術',10,'f_ok','f_ng'),
+K('倒れた武士を調べる','h7','観察',10,'g_ok','g_ng'),
+K('蔵の周りの妖気を探る','i1','異能',10,'i1_ok','i1_ng'),
+K('武士にかけられた術式を解読する','i2','異能',11,'i2_ok','i2_ng'),
+{label:'境内の祠を調べる',require:['room'],hide:'h9',next:'shrine'},
+{label:'助手に意見を聞く',hide:'h0',next:'think'},
+{label:'犯人を指摘する',next:'accuse'}]},
+a_ok:R(['h1'],['c_log'],'工房に、昨夜の式神召喚の記録があった。成功の欄は空白で、失敗の痕跡ばかりだ。\n助手「テレビのドキュメンタリーで見たんですけど、昔の呪術の儀式って、失敗すると炭の跡がこう残るらしいですよ……って、晴明さん、すごい剣幕で怒ってますね」'),
+a_ng:R(['h1','c_log'],[],'工房に実験の記録らしきものがあるが、成否までは読めなかった。\n助手「晴明さん、こっちを睨んでますよ……」'),
+b_ok:R(['h2'],['c_say_sei'],'晴明は胸を張った。「昨夜は夜通し、強力な式神の召喚に成功していた。天才に不可能はない！」\n助手「（いかにも怪しいですけど、怪しすぎる気も……）」'),
+b_ng:R(['h2','c_say_sei'],[],'晴明は鼻で笑った。「天才の実験に決まっている」\n助手「（機嫌最悪ですね……）」'),
+c_ok:R(['h3'],['c_letter'],'陰陽頭の部屋に、龍鳴の玉を権力者へ献上する旨の書状の控えがあった。\n助手「この書類、玉を差し出すルートまで手配してるじゃないですか。陰陽頭、かなり野心家みたいです」'),
+c_ng:R(['h3','c_letter'],[],'文机に書状の山があるが、中身までは確認できなかった。\n助手「あの書類、気になりますね……」'),
+d_ok:R(['h4'],['c_say_mich'],'道長は言い切った。「龍鳴の玉など、そんな宝があることすら知らなかった」\n助手「（冷徹ですね……。でも、目が泳いでます）」'),
+d_ng:R(['h4','c_say_mich'],[],'道長は扇で口元を隠した。「知らぬ」\n助手「（取り付く島がないですね……）」'),
+e_ok:R(['h5'],['c_scroll'],'桔梗の部屋は驚くほど清潔だった。棚には、龍鳴の玉にまつわる言い伝えを書き写した巻物があり、「人の野心に使わせてはならない」と記されている。\n助手「わあ、すごく綺麗に整理されてます。……って、あれ？　この巻物、玉のことがびっしり書いてありません……？　いや、まさか、ただの勉強熱心ですよね」'),
+e_ng:R(['h5','c_scroll'],[],'部屋は綺麗に整頓されている。棚に巻物があるが、中身までは見られなかった。\n助手「わあ、綺麗……。あの巻物、ちょっと気になりますけど」'),
+f_ok:R(['h6'],['c_say_kik'],'桔梗はそっと言った。「夜は祈祷をしていて、蔵には近づいておりません」\n助手「（おどおどしてて可哀想……。さすがに桔梗さんは関係ないですよね）」'),
+f_ng:R(['h6','c_say_kik'],[],'桔梗はうつむいた。「蔵には……行っていないと思います」\n助手「（頼りない感じですね……）」'),
+g_ok:R(['h7'],['c_incense'],'倒れた武士の衣に、今夜焚かれたばかりの特製の香が染み込んでいた。調合を知るのは桔梗だけだ。\n助手「眠ってるだけみたいですけど……この香り、どこかで嗅いだような」'),
+g_ng:R(['h7','c_incense'],[],'武士の衣から香の匂いがする。新しいようだが、誰のものかは分からない。\n助手「いい香り……いや、気のせいですかね」'),
+i1_ok:{gain:['i1'],hunch:2,text:'{探偵}が印を結び集中すると、蔵の入口付近に残るかすかな霊気の残滓を感じ取った。呪符の呪術ではなく、もっと身近な「祓いの香」の香りが交ざっている。\n助手「所長、霊力が冴え渡ってますね！　ひらめきが湧き上がってきました！」\n霊力が冴えた。（ひらめき+2）',choices:BACK},
+i1_ng:R(['i1'],[],'陰気な空気に阻まれ、気配を絞りきれない。だが、わずかな違和感が胸に残った。\n助手「焦らなくて大丈夫ですよ、所長」'),
+i2_ok:{gain:['i2'],hunch:2,text:'武士の額に残る術印を、霊力で見通す。それは攻撃の呪詛ではなく、一時的に深い眠りに落とすための「穏やかな睡眠術」の痕跡だった。\n助手「なるほど！　凶悪な妖怪の仕業に見せかけて、誰も傷つけない術を使っていたんですね！」\n霊力が冴えた。（ひらめき+2）',choices:BACK},
+i2_ng:R(['i2'],[],'術式が複雑で、完全には読み解けない。しかし、命に別条がないことだけは分かった。'),
+ct_sei:R(['ct1'],[],'?c_log>=2|探偵「晴明殿、昨夜は強力な式神の召喚に成功したと言ったが、工房の記録は失敗の痕跡ばかりだ。成功した式神など、どこにもいない」\n?c_log<2|探偵「晴明殿、強力な式神を召喚したと言ったが、工房の記録が気になる。……本当に成功したのか？」\n晴明「……チッ、バレたか。天才のイメージを保ちたくて嘘をついただけだ！　玉など盗んでおらん！　失敗した式神の後始末は、いつも巫女の桔梗がこっそりしてくれていたがな……」\n助手「（強がりだったんですね……。巫女さん？）」'),
+ct_mich:R(['ct2'],[],'?c_letter>=2|探偵「道長様、玉の存在すら知らなかったと言いましたね。だが、この部屋には、玉を献上する旨の書状の控えがある」\n?c_letter<2|探偵「道長様、玉の存在すら知らなかったと言いましたね。だが、お部屋の書状が気になる。……お見せいただけますか？」\n道長「ぐぬぬ……！　盗んだのは私ではない！　献上しようとした矢先、何者かに先を越されたのだ！　この計画を知るのは、玉の帳面を整理していた巫女くらいだが……」\n助手「（陰陽頭もただの出し抜かれた側ですね。……また巫女さん？）」'),
+ct_kik:R(['room'],[],'?c_incense>=2|探偵「桔梗さん、蔵には近づいていないと言いましたね。だが、倒れた武士の衣には、今夜焚かれたばかりのあなた特製の香が染み込んでいる」\n?c_incense<2|探偵「桔梗さん、蔵には近づいていないと言いましたね。だが、武士の衣から香の匂いがする。……本当に、近づいていない？」\n桔梗「そ、それは……。わ、私は、境内の祠のお清めに行かなくては……」\n助手「（今、あわてて祠に行こうとしましたね……）」'),
+shrine:R(['h9'],['c_gem'],'境内の祠の奥に、蒼い光を放つ玉が静かに納められていた。\n助手「あった！　龍鳴の玉……でも、どうして桔梗さんが？」'),
+think:{gain:['h0'],hunch:1,text:'助手「所長、整理しませんか？　晴明さんも道長様も、いかにも怪しいですけど……」\n?ct1>=1|助手「晴明さんの話に、巫女さんが出てきましたね……」\n?ct2>=1|助手「道長様の話にも、巫女さんが……」\n?c_incense>=1|助手「武士さんの衣のお香……誰のものなんでしょう」\n探偵「食い違う証言を、手帳で突き合わせてみよう」\n助手の雑学が、ひらめきのきっかけになった。（ひらめき+1）',choices:BACK},
+accuse:{text:'陰陽寮の者たちを庭に集めた。\n助手「所長、誰を指摘しますか……？」',choices:[
+{label:'犯人は陰陽生の晴明だ',next:'end_wrong'},
+{label:'犯人は陰陽頭の道長だ',next:'end_wrong'},
+{label:'犯人は巫女の桔梗だ',next:'confront'},
+{label:'まだ調べる',next:'hub'}]},
+confront:{text:'探偵「桔梗さん、お話があります」\n桔梗は、いつものようにそっと箒を抱えている。だが、その瞳は静かに澄んでいた。\n手がかりと整理した推理が多いほど、言い逃れは難しい。',choices:[
+{label:'手がかりを突きつけて追い詰める',check:{stat:'話術',dc:14,power:1},success:'motive',fail:'end_bad'}]},
+motive:{text:'桔梗は黙ったまま、手元の箒に視線を落とした。\n助手「所長、これで終わりですか？　それとも、まだ何かありますか……？」',choices:[
+{label:'龍鳴の玉と、全員の動きのつながりを突きつける',require:['c_gem','ct1','ct2'],next:'end_true'},
+{label:'玉を隠したことの自白だけを受け取る',next:'end_good'}]},
+end_true:{ending:{title:'龍鳴の護り手',kind:'true'},text:'探偵「『龍鳴の玉』を隠したのは、あなたですね、桔梗さん」\n桔梗は静かに頭を下げ、いつもの儚げな笑みを消した。\n桔梗「……あの玉は、人間の野心のために使われて良いものではありません。晴明さまの失敗も、道長さまの献上も、すべて存じておりました。ですから、妖怪の仕業に見せかけて、玉を祠へお返ししたのです。武士さまには、ただお休みいただいただけ」\n助手「一番おとなしくて無害に見えた桔梗さんが、一番強い霊力と覚悟を持っていたなんて……！」\n祠から現れた玉は、宵闇の中で神秘的な蒼い光を放ち、平安の夜に静けさを取り戻した。'},
+end_good:{ending:{title:'玉の隠匿を認める',kind:'good'},text:'桔梗は静かに、玉を隠したと認めた。\n助手「でも、どうして……？　晴明さんや道長様とは、何の関係が……」\n理由は語られないまま、宵闇の事件は幕を閉じた。'},
+end_bad:{ending:{title:'消えた巫女',kind:'bad'},text:'桔梗は穏やかに微笑んだだけで、何も語らなかった。夜が明けると、彼女の姿は陰陽寮から消えていた。\n助手「あんなに控えめな人だったのに……」'},
+end_wrong:{ending:{title:'見当違い',kind:'bad'},text:'指摘は的外れだった。玉は戻らず、夜明け前に、巫女が静かに寮を去る背中を、あなたはただ見送るしかなかった。\n助手「所長……見当違いでしたね」'}}};
+
+const E=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+const app=document.getElementById('app');
+const ls=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
+const normSave=o=>{o.stats=o.stats||{};STATS.forEach(k=>{if(!(o.stats[k]>0))o.stats[k]=2});o.cleared=o.cleared||{};o.heroes=o.heroes||{};o.pts=o.pts||0;return o};
+const fresh=()=>({format_version:1,stats:{観察:2,推理:2,話術:2,体力:2,異能:2},pts:0,cleared:{},heroes:{}});
+let save,custom,run,selStat='',flash='';
+const persist=()=>ls('mq_save',save);
+const rnd=()=>1+Math.floor(Math.random()*20);
+const ok=(r,m,dc)=>r===20||(r!==1&&r+m>=dc);
+const power=()=>{const c=run.s.clues||{};let sum=0,hit=0;for(const k in c){const v=run.flags[k]||0;sum+=v;if(v&&c[k].who>=0&&run.link[k]===c[k].who)hit++}return Math.min(8,Math.floor(sum/2)+hit)};
+const mod=k=>save.stats[k.stat]+(k.power?power()+Math.max(0,save.stats['推理']-2):0);
+const sn=k=>k==='異能'&&run&&run.s.world&&run.s.world.special?`異能（${run.s.world.special}）`:k;
+const pct=k=>{let n=0;for(let r=1;r<=20;r++)if(ok(r,mod(k),k.dc))n++;return n*5};
+const begin=s=>{run={s,flags:{},hunch:0,link:{},seen:{}};if(s.world&&s.world.special)worldIntro(s);else go('start')};
+function worldIntro(s){
+ const w=s.world;app.innerHTML='';
+ const b=E('div','endbox');b.append(E('div','k','― 物語世界へ ―'),E('div','tt',w.name),E('p','',`今回は『${w.name}』の物語世界のようだ。`),E('p','',`この世界では、異能が『${w.special}』に変換されました。`),E('div','mut',`${w.special}（${hero('探偵').name}の異能 ${save.stats['異能']}）：${w.desc||''}`));
+ app.append(b);
+ if(w.intro){const c=E('div','card');String(w.intro).split('\n').forEach(l=>c.append(line(l)));app.append(c)}
+ const g=E('button','ch pri','物語を始める');g.onclick=()=>go('start');const t=E('button','ch','タイトルへ戻る');t.onclick=title;app.append(g,t);
+}
+
+function title(){
+ app.innerHTML='';
+ app.append(E('h1','','ミステリー・ダイス'),E('p','mut','探偵コンビとなって、様々な物語世界を旅しよう。事件も、怪異も、不可思議な現象も解き明かす。物語の世界に入るたび、あなたの「異能」はその世界の力に姿を変える。（プロトタイプ版）'));
+ if(flash){const f=E('div','card',flash);f.style.whiteSpace='pre-wrap';app.append(f);flash=''}
+ const sc=E('div','card');sc.append(E('strong','',hero('探偵').name+'のステータス'+(save.pts?`　成長ポイント ${save.pts}`:'')));
+ const info=E('div','mut',selStat?`${selStat}：${STAT_INFO[selStat]}`:'判定は1D20＋ステータス。1上げると成功率+5%。タップで各ステータスの説明が出ます。'+(save.pts?'＋で1ずつ割り振れます。':'成長ポイントはクリアすると手に入ります。'));info.style.minHeight='3.8em';
+ const grid=E('div','sg'),chips={};
+ STATS.forEach(s=>{const g=E('div','sgi'),c=E('button',selStat===s?'pri':'',`${s} ${save.stats[s]}`);chips[s]=c;
+  c.onclick=()=>{selStat=s;STATS.forEach(k=>chips[k].classList.toggle('pri',k===s));info.textContent=`${s}：${STAT_INFO[s]}`};g.append(c);
+  if(save.pts>0){const b=E('button','','＋');b.onclick=()=>{save.stats[s]++;save.pts--;persist();title()};g.append(b)}grid.append(g)});
+ sc.append(grid,info);
+ const rb=E('button','','ルール（ひらめき・追及力など）');rb.onclick=()=>rules(title);const hb=E('button','','主人公の名前・画像');hb.onclick=()=>heroEdit(title);const br=E('div','btnrow');br.append(rb,hb);sc.append(br);app.append(sc);
+ [STORY,STORY2,STORY3,...custom].sort((a,b)=>(a.difficulty||1)-(b.difficulty||1)).forEach(s=>{
+  const total=Object.values(s.scenes).filter(x=>x.ending).length,got=(save.cleared[s.id]||[]).length;
+  const c=E('div','card');c.append(E('strong','',s.title+(custom.includes(s)?'（追加ストーリー）':'')),E('div','mut',`${s.genre?s.genre+'　':''}作者：${s.author||'不明'}　難易度 ${s.difficulty||1}/10　エンディング ${got}/${total}`));
+  const b=E('button','ch pri','この物語を始める');b.onclick=()=>begin(s);const w=E('button','ch','登場人物を見る');w.onclick=()=>cast(s,title);c.append(b,w);
+  if(custom.includes(s)){const x=E('button','','この追加ストーリーを削除');x.onclick=()=>{if(!x.dataset.ok){x.dataset.ok=1;x.textContent='もう一度押すと削除します';return}custom=custom.filter(z=>z!==s);ls('mq_stories',custom);title()};c.append(x)}
+  app.append(c)});
+ const d=E('details','card');d.append(E('summary','','追加ストーリー・セーブの読み込み／書き出し'));
+ const tx=E('textarea');const msg=E('p','mut');msg.style.whiteSpace='pre-wrap';const fi=E('input');fi.type='file';fi.accept='.txt,.json,text/plain';
+ fi.onchange=()=>{const f=fi.files[0];if(f)f.text().then(t=>{tx.value=t;msg.textContent='ファイルを読み込みました。下のボタンで用途を選んでください。'})};
+ const btn=(l,fn)=>{const b=E('button','',l);b.style.margin='6px 6px 0 0';b.onclick=fn;d.append(b)};
+ d.append(E('p','mut','追加ストーリーやセーブのテキストファイルを選ぶか、テキストを貼り付けてください。'),fi,tx);
+ btn('ストーリーとして読み込む',()=>{const r=addStory(tx.value);if(r.err){msg.textContent=r.err;return}flash=`追加ストーリー「${r.title}」を読み込みました。`+(r.warn?`\n（確認してください）\n${r.warn}`:'');title()});
+ btn('セーブとして読み込む',()=>{try{const o=JSON.parse(tx.value);if(!o.stats||!o.format_version)throw 0;save=normSave(Object.assign(fresh(),o));persist();title()}catch(e){msg.textContent='セーブデータの形式が正しくありません。'}});
+ btn('セーブを書き出す',()=>{tx.value=JSON.stringify(save,null,1);msg.textContent='テキストをコピーして保存してください（ダウンロードも試行します）。';try{const a=E('a');a.href=URL.createObjectURL(new Blob([tx.value],{type:'text/plain'}));a.download='mystery-dice-save.txt';a.click()}catch(e){}});
+ btn('サンプルのストーリー形式を見る',()=>{tx.value=JSON.stringify(STORY,null,1);msg.textContent='これが追加ストーリーの書式です。'});
+ d.append(msg);app.append(d);
+}
+function validate(o){
+ const e=[],w=[];
+ if(!o||typeof o!=='object'||Array.isArray(o))return{e:['JSONの形式が正しくありません。'],w};
+ if(o.format_version!==1)e.push('format_version は 1 にしてください。');
+ if(!o.id||typeof o.id!=='string')e.push('id（半角英数の識別名）がありません。');
+ else if([STORY,STORY2,STORY3].some(x=>x.id===o.id))e.push('その id は標準ストーリーと重複しています。');
+ if(!o.title)e.push('title（タイトル）がありません。');
+ if(o.difficulty!==undefined&&!(o.difficulty>=1&&o.difficulty<=10))e.push('difficulty は1〜10にしてください。');
+ if(o.world&&(!o.world.name||!o.world.special))e.push('world には name（物語世界の名前）と special（異能の呼び名）が必要です。');
+ const S=o.scenes;
+ if(!S||!S.start){e.push('scenes.start（最初の場面）がありません。');return{e,w}}
+ const gained=new Set(),to=[],ends=[];
+ for(const [id,x] of Object.entries(S)){
+  if(typeof x.text!=='string'){e.push(`場面「${id}」に text がありません。`);continue}
+  x.text.split('\n').forEach(l=>{if(l[0]==='?'&&!/^\?\w+(>=|<)\d\|/.test(l))e.push(`場面「${id}」の条件付きの行の書式が正しくありません（?手がかりID>=2|文章）。`)});
+  [...(x.gain||[]),...(x.strong||[])].forEach(f=>gained.add(f));
+  if(x.ending){ends.push(id);if(!KIND[x.ending.kind])e.push(`場面「${id}」の ending.kind は true / good / bad のいずれかです。`)}
+  else if(!(x.choices||[]).length)e.push(`場面「${id}」は行き止まりです（choices か ending が必要です）。`);
+  for(const c of x.choices||[]){
+   if(!c.label)e.push(`場面「${id}」に label のない選択肢があります。`);
+   if(c.check){if(!STATS.includes(c.check.stat)||!(c.check.dc>0))e.push(`場面「${id}」の判定には stat（${STATS.join('・')}）と dc（目標値）が必要です。`);to.push([id,c.success],[id,c.fail])}else to.push([id,c.next]);
+  }
+ }
+ to.forEach(([id,n])=>{if(!n||!S[n])e.push(`場面「${id}」の行き先「${n||'未設定'}」が存在しません。`)});
+ for(const [id,x] of Object.entries(S))for(const c of x.choices||[])[...(c.require||[]),c.hide].filter(Boolean).forEach(f=>{if(!gained.has(f))e.push(`場面「${id}」の条件「${f}」を得られる場面がありません。`)});
+ const cl=o.clues||{},n=(o.suspects||[]).length;
+ for(const [k,x] of Object.entries(cl)){if(!gained.has(k))w.push(`手がかり「${k}」を入手できる場面がありません。`);if(n&&x.who>=n)e.push(`手がかり「${k}」の who が容疑者の人数を超えています。`)}
+ for(const c of o.contradictions||[]){if(!cl[c.a]||!cl[c.b])e.push('contradictions に未定義の手がかりがあります。');if(!S[c.to])e.push(`contradictions の行き先「${c.to}」が存在しません。`)}
+ const q=['start',...(o.contradictions||[]).map(c=>c.to)],seen=new Set(q);
+ while(q.length){const x=S[q.pop()];if(!x)continue;for(const c of x.choices||[])for(const t of c.check?[c.success,c.fail]:[c.next])if(t&&!seen.has(t)){seen.add(t);q.push(t)}}
+ Object.keys(S).filter(id=>!seen.has(id)).forEach(id=>w.push(`場面「${id}」にはどこからも行けません。`));
+ if(!ends.length)e.push('エンディング（ending を持つ場面）が1つもありません。');
+ else if(!ends.some(id=>seen.has(id)))e.push('エンディングに到達できません。');
+ return{e,w};
+}
+function addStory(t){
+ let o;try{o=JSON.parse(t)}catch(x){return{err:'JSONとして読めません。カンマや引用符の抜け、全角の記号などを確認してください。\n（'+x.message+'）'}}
+ const r=validate(o);
+ if(r.e.length)return{err:`読み込めませんでした（${r.e.length}件）：\n`+r.e.map(x=>'・'+x).join('\n')};
+ custom=custom.filter(x=>x.id!==o.id).concat(o);ls('mq_stories',custom);
+ return{title:o.title,warn:r.w.map(x=>'・'+x).join('\n')};
+}
+function go(id){
+ const sc=run.s.scenes[id];run.cur=id;
+ (sc.gain||[]).forEach(f=>run.flags[f]=Math.max(run.flags[f]||0,1));(sc.strong||[]).forEach(f=>run.flags[f]=2);
+ if(sc.hunch&&!run.seen[id]){run.seen[id]=1;run.hunch+=sc.hunch}
+ view(id);
+}
+function view(id){
+ const s=run.s,sc=s.scenes[id];app.innerHTML='';
+ const hd=E('div','mut',`${s.title}　ひらめき ${run.hunch}　追及力 ${power()}`);app.append(hd);
+ if(!sc.ending){const hb=E('div','btnrow');if(s.clues){const b=E('button','','手帳');b.onclick=book;hb.append(b)}const w=E('button','','メニュー');w.onclick=menu;hb.append(w);app.append(hb)}
+ const t=E('div','card');sc.text.split('\n').forEach(p=>{const m=p.match(/^\?(\w+)(>=|<)(\d)\|(.*)$/);if(m){const v=run.flags[m[1]]||0;if(m[2]==='>='?v<+m[3]:v>=+m[3])return;p=m[4]}t.append(line(p))});app.append(t);
+ if(sc.ending)return ending(id,sc.ending);
+ (sc.choices||[]).forEach(c=>{
+  if(c.hide&&run.flags[c.hide])return;if(c.require&&!c.require.every(f=>run.flags[f]))return;
+  const b=E('button','ch',c.label+(c.check?`　【${sn(c.check.stat)}判定　成功率${pct(c.check)}%】`:''));
+  b.onclick=()=>c.check?roll(c):go(c.next);app.append(b)});
+}
+function rules(back){
+ app.innerHTML='';app.append(E('h1','','ルール'));
+ [['判定','選択肢の【判定】では、1D20（20面ダイス）を振り、出目＋ステータスが目標値以上なら成功です。出目20は必ず成功、出目1は必ず失敗します。'],
+ ['異能','物語世界に入るたび、異能がその世界の力（直感・霊力・魔力など）に変換されます。数値は共通で、育てた分だけ、どの世界でも「異能」の判定に加算されます。'],
+ ['ひらめき（消費型）','判定に失敗すると+1、「助手に意見を聞く」でも+1されます。2つ貯めると、失敗した判定を「ひらめきで押し切る」で成功に変えられます（2つ消費）。持ち越しはなく、物語ごとにリセットされます。'],
+ ['手がかり','調査で手に入ります。成功すると「確か」、失敗しても「あやふや」な手がかりが手に入ります。'],
+ ['追及力','手がかりの確かさ（確か＝2、あやふや＝1の合計の半分、切り捨て）に、手帳で正しく関連づけた人物の数を足した値です（最大8）。最後の追い詰めの判定に加算され、そこでは推理の成長分もさらに加わります。'],
+ ['主人公・世界観','探偵と助手は、物語ごとに違う世界を旅し、事件だけでなく、怪異や不可思議な現象、異世界の謎も解き明かします。2人の名前と画像は、タイトル画面の「主人公の名前・画像」から変えられます。'],
+ ['手帳','手がかりを2つ選ぶと、証言と物証の食い違いを突き合わせられます。各手がかりに「関連」する人物を設定することもできます。'],
+ ['成長ポイント','犯人を突き止めてクリアすると手に入ります（真相エンディングは2、通常クリアは1。エンディングごとに初回のみ）。タイトル画面でステータスに割り振れます。']].forEach(([h,t])=>{const c=E('div','card');c.append(E('strong','',h),E('p','',t));app.append(c)});
+ const b=E('button','ch pri','戻る');b.onclick=back;app.append(b);
+}
+const HEROES=[{n:'探偵',r:'あなた（プレイヤーの分身）',d:'冷静沈着で論理的。事件も怪異も、不可思議な現象も、証言と物証の食い違いから解き明かす。'},{n:'助手',r:'探偵の相棒',d:'少しミーハーで雑学好き。軽妙なツッコミと、ふとしたヒントで探偵を支える。'}];
+const HK=['探偵','助手'];
+const hero=k=>{const h=(save.heroes||{})[k]||{};return{name:(h.name||'').trim()||k,img:/^data:image\/(jpeg|png|webp);base64,/.test(h.img||'')?h.img:''}};
+function avatar(k,n){const h=hero(k);let a;if(h.img){a=E('img','av');a.src=h.img;a.alt=h.name}else{a=E('div','av',[...h.name][0]);a.style.fontSize=(n*.5)+'px'}a.style.width=a.style.height=n+'px';return a}
+function pic(file,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const n=160,c=document.createElement('canvas');c.width=c.height=n;const m=Math.min(im.width,im.height);c.getContext('2d').drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,n,n);cb(c.toDataURL('image/jpeg',0.82))};im.onerror=()=>cb(null);im.src=r.result};r.onerror=()=>cb(null);r.readAsDataURL(file)}
+const setHero=(k,o)=>{save.heroes=save.heroes||{};save.heroes[k]=Object.assign(save.heroes[k]||{},o);persist()};
+function line(p){
+ const f=x=>x.replace(/\{(探偵|助手)\}/g,(_,k)=>hero(k).name),m=p.match(/^(探偵|助手)(「[\s\S]*)$/);
+ if(!m)return E('p','',f(p));
+ const r=E('div','dl');r.append(avatar(m[1],34),E('span','',hero(m[1]).name+f(m[2])));return r;
+}
+function heroEdit(back){
+ app.innerHTML='';app.append(E('h1','','主人公の設定'),E('p','mut','探偵と助手の名前・画像を変えられます。この端末のブラウザに保存され、セーブの書き出しにも含まれるので、別の端末にも移せます。'));
+ const msg=E('p','mut');
+ HK.forEach((k,idx)=>{
+  const c=E('div','card'),row=E('div','dl'),slot=E('div'),box=E('div');box.style.flex='1';
+  const draw=()=>{slot.innerHTML='';slot.append(avatar(k,64))};draw();
+  const inp=E('input');inp.type='text';inp.maxLength=12;inp.value=hero(k).name;inp.setAttribute('aria-label',k+'の名前');
+  inp.style.cssText='width:100%;box-sizing:border-box;font:inherit;padding:8px;margin:6px 0;background:var(--card);color:var(--ink);border:1px solid var(--ln);border-radius:4px';
+  inp.onchange=()=>{setHero(k,{name:inp.value.trim().slice(0,12)});draw();msg.textContent='名前を保存しました。'};
+  const f=E('input');f.type='file';f.accept='image/*';f.style.display='none';
+  f.onchange=()=>{if(f.files[0])pic(f.files[0],d=>{if(!d){msg.textContent='画像を読み込めませんでした。';return}setHero(k,{img:d});draw();msg.textContent='画像を保存しました（正方形に切り抜いて縮小します）。'})};
+  const b1=E('button','','画像を選ぶ');b1.onclick=()=>f.click();
+  const b2=E('button','','画像を消す');b2.onclick=()=>{setHero(k,{img:''});draw();msg.textContent='画像を消しました。'};
+  const br=E('div','btnrow');br.append(b1,b2);box.append(E('div','mut',idx?'助手':'探偵（あなた）'),inp,br,f);row.append(slot,box);c.append(row);app.append(c)});
+ const b=E('button','ch pri','戻る');b.onclick=back;app.append(msg,b);
+}
+function cast(s,back){
+ app.innerHTML='';app.append(E('h1','','登場人物'),E('div','mut','主人公コンビ'));
+ HEROES.forEach(x=>{const c=E('div','card'),r=E('div','dl'),b=E('div');b.append(E('strong','',hero(x.n).name),E('span','mut','　'+x.r),E('div','',x.d));r.append(avatar(x.n,44),b);c.append(r);app.append(c)});
+ const eb=E('button','','主人公の名前・画像を変更する');eb.onclick=()=>heroEdit(()=>cast(s,back));app.append(eb);
+ if(s&&s.cast){app.append(E('div','mut',`『${s.title}』の登場人物`));s.cast.forEach(x=>{const c=E('div','card');c.append(E('strong','',x.n),E('span','mut','　'+x.r),E('div','',x.d));app.append(c)})}
+ const b=E('button','ch pri','戻る');b.onclick=back;app.append(b);
+}
+function menu(){
+ const s=run.s,ends=Object.entries(s.scenes).filter(([,x])=>x.ending),cl=save.cleared[s.id]||[];
+ app.innerHTML='';app.append(E('h1','','メニュー'),E('div','mut',s.title));
+ const c=E('div','card');c.append(E('strong','',`エンディング進捗　${cl.length}/${ends.length}`));
+ ends.forEach(([id,x])=>{const d=E('div','',cl.includes(id)?`・${x.ending.title}（${KIND[x.ending.kind]}）`:'・？？？（未達成）');d.style.margin='4px 0';c.append(d)});
+ app.append(c);
+ const g=E('button','ch pri','物語に戻る');g.onclick=()=>view(run.cur);app.append(g);
+ const row=E('div','btnrow');
+ [['登場人物',()=>cast(s,menu)],['ルール',()=>rules(menu)],['主人公の名前・画像',()=>heroEdit(menu)]].forEach(([l,f])=>{const b=E('button','',l);b.onclick=f;row.append(b)});
+ app.append(row);
+ const t=E('button','ch','タイトルへ戻る');t.onclick=()=>{if(!t.dataset.ok){t.dataset.ok=1;t.textContent='もう一度押すと、進行中の物語を中断してタイトルへ戻ります';return}title()};app.append(t);
+}
+function book(){
+ const s=run.s,c=s.clues,S=s.suspects||[],sel=[];
+ const nm=v=>v>=0?S[v]:'未設定';
+ app.innerHTML='';app.append(E('h1','','手帳'),E('p','mut','2つ選んで食い違いを突き合わせられます。「関連」に人物を設定し、正しく結びつくと追及力が上がります。'));
+ Object.keys(c).filter(k=>run.flags[k]).forEach(k=>{
+  const x=c[k],st=run.flags[k]>1,d=E('div','card'),cb=E('input');cb.type='checkbox';
+  cb.onchange=()=>{if(cb.checked)sel.push(k);else sel.splice(sel.indexOf(k),1)};
+  d.append(cb,E('strong','',` ${x.t}（${st?'確か':'あやふや'}）`),E('div','',st?x.d:(x.w||x.d)));
+  if(x.who>=0){const l=E('button','','関連：'+nm(run.link[k]??-1));l.style.marginTop='6px';
+   l.onclick=()=>{run.link[k]=((run.link[k]??-1)+2)%(S.length+1)-1;l.textContent='関連：'+nm(run.link[k])};d.append(l)}
+  app.append(d)});
+ const msg=E('p','mut');
+ const m=E('button','ch pri','選んだ2つを突き合わせる');
+ m.onclick=()=>{if(sel.length!==2){msg.textContent='手がかりを2つ選んでください。';return}
+  const t=(s.contradictions||[]).find(z=>(z.a===sel[0]&&z.b===sel[1])||(z.a===sel[1]&&z.b===sel[0]));
+  if(!t)msg.textContent='決定的な食い違いは見つからない。';else if(run.seen['_'+t.to])msg.textContent='すでに指摘済みだ。';else{run.seen['_'+t.to]=1;go(t.to)}};
+ const x=E('button','ch','手帳を閉じる');x.onclick=()=>view(run.cur);app.append(m,msg,x);
+}
+function roll(c){
+ app.innerHTML='';const box=E('div','card dice'),d=E('div','d','?');box.append(E('div','mut',`${sn(c.check.stat)}判定　目標値 ${c.check.dc}`),d);app.append(box);
+ let i=0;const iv=setInterval(()=>{d.textContent=rnd();if(++i>9){clearInterval(iv);fin()}},60);
+ function fin(){
+  const r=rnd(),m=mod(c.check),g=ok(r,m,c.check.dc);d.textContent=r;
+  box.append(E('p','',`出目 ${r} ＋ 補正 ${m} ＝ ${r+m}（目標 ${c.check.dc}）`+(r===20?'　大成功！':r===1?'　大失敗…':'')),E('div',g?'ok':'ng',g?'成功':'失敗'));
+  const nx=()=>go(c.success);
+  if(g){const b=E('button','ch pri','つづける');b.onclick=nx;box.append(b);return}
+  run.hunch++;box.append(E('p','mut',`失敗から学び、ひらめき+1（現在 ${run.hunch}）。2つ貯まると、失敗を成功に変えられます。`));
+  if(run.hunch>=2){const k=E('button','ch','ひらめきで押し切る（ひらめき2消費）');k.onclick=()=>{run.hunch-=2;nx()};box.append(k)}
+  const b=E('button','ch pri','失敗を受け入れる');b.onclick=()=>go(c.fail);box.append(b)}
+}
+function ending(id,e){
+ const s=run.s,cl=save.cleared[s.id]=save.cleared[s.id]||[];let note='';
+ if(!cl.includes(id)){cl.push(id);if(e.kind!=='bad'){const g=e.kind==='true'?2:1;save.pts+=g;note=`成長ポイント +${g}（タイトル画面でステータスを上げられます）`}}
+ persist();const b=E('div','endbox'+(e.kind==='bad'?' bad':''));b.append(E('div','k','― エンディング ―'),E('div','tt',e.title),E('div','k',KIND[e.kind]));b.append(E('div','mut',`エンディング達成　${cl.length}/${Object.values(s.scenes).filter(x=>x.ending).length}`));if(note)b.append(E('div','mut',note));app.append(b);
+ const r=E('button','ch','もう一度この物語を遊ぶ');r.onclick=()=>begin(s);
+ const h=E('button','ch pri','タイトルへ戻る');h.onclick=title;app.append(r,h);
+}
+save=normSave(ls('mq_save')||fresh());custom=ls('mq_stories')||[];title();
+</script>
+</body>
+</html>
