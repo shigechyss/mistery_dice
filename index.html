@@ -56,7 +56,7 @@ c_will2:{t:'新しい遺言書',who:-1,d:'肖像画の裏にあった新しい�
 contradictions:[{a:'c_takashi_say',b:'c_phone',to:'ct_takashi'},{a:'c_saeki_say',b:'c_ink',to:'ct_saeki'}],
 scenes:{
 start:{text:'嵐の夜、山あいの洋館。深夜、当主・黒川源蔵の金庫から、朝に公開されるはずの遺言書が消えているのが見つかった。\n橋は流され、外部との連絡は取れない。\n助手「うわぁ、完全に孤立じゃないですか……。ねえ所長、この状況、前にテレビの特番で見ましたよ」\n探偵「ああ。屋敷にいるのは長男の隆、長女の美咲、執事の佐伯、そして我々だ。犯人はこの中にいる」\n朝までに、謎を解き明かさなければならない。',choices:[{label:'調査を始める',next:'hub'}]},
-hub:{text:'朝までに犯人を突き止めなければならない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+hub:{shuffle:true,text:'朝までに犯人を突き止めなければならない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
 K('書斎を調べる','s1','観察',10,'a_ok','a_ng'),
 K('机の周りを重点的に調べる','s5','観察',9,'a2_ok','a2_ng','s1'),
 K('窓の外を確かめる','s2','体力',9,'b_ok','b_ng'),
@@ -116,7 +116,7 @@ c_box:{t:'隠し部屋のオルゴール',who:-1,d:'楽器室の隠し部屋で�
 contradictions:[{a:'c_makabe_say',b:'c_paint',to:'ct_makabe'},{a:'c_kirishima_say',b:'c_debt',to:'ct_kirishima'},{a:'c_hatsune_say',b:'c_cup',to:'ct_hatsune'}],
 scenes:{
 start:{text:'雪に閉ざされた山荘の美術館。当主の宝である「特製オルゴール」が盗まれ、見回りの管理人は縛り上げられていた。監視カメラの映像も切り取られている。\n屋敷にいるのは、荒くれ者の画家・真壁、冷徹なオーナー・霧島、おとなしい家政婦の初音、そして我々だけだ。\n助手「うう、寒いです……。それにしても、いかにも怪しい人が揃ってますね」\n探偵「ああ。だが、ミステリーの鉄則を忘れるな。『一番怪しくない人間』こそが、最も巧妙に動いている場合がある」\n朝が来る前に、全員の裏の顔と隠された秘密を暴かなければならない。',choices:[{label:'調査を始める',next:'hub'}]},
-hub:{text:'吹雪は止まない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+hub:{shuffle:true,text:'吹雪は止まない。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
 K('アトリエを調べる','h1','観察',10,'a_ok','a_ng'),
 K('真壁に話を聞く','h2','話術',11,'b_ok','b_ng'),
 K('オーナー室を調べる','h3','観察',10,'c_ok','c_ng'),
@@ -183,7 +183,7 @@ c_gem:{t:'祠の龍鳴の玉',who:-1,d:'境内の祠の奥で見つかった、�
 contradictions:[{a:'c_say_sei',b:'c_log',to:'ct_sei'},{a:'c_say_mich',b:'c_letter',to:'ct_mich'},{a:'c_say_kik',b:'c_incense',to:'ct_kik'}],
 scenes:{
 start:{text:'闇に包まれた平安京。陰陽寮の深奥に位置する「開かずの蔵」から、秘宝『龍鳴の玉』が消え去った。\n蔵を守っていた武士は怪異の手にかかったように倒れ、現場には黒い呪符が散乱している。\n助手「うわぁ、本物の陰陽師の世界ですよ！　でも、呪いとか式神とか、本当にいるんでしょうか……？」\n探偵「惑わされるな。怪異の裏には必ず人間の意図がある。怪しい陰陽生、権力欲の強い陰陽頭、そして控えめな巫女……犯人はこの中にいる」',choices:[{label:'調査を始める',next:'hub'}]},
-hub:{text:'嵐の夜の陰陽寮。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
+hub:{shuffle:true,text:'嵐の夜の陰陽寮。手帳で手がかりを整理し、証言と物証の食い違いを探そう。\n助手「所長、気になるところから攻めましょう！」',choices:[
 K('工房を調べる','h1','観察',10,'a_ok','a_ng'),
 K('晴明に話を聞く','h2','話術',11,'b_ok','b_ng'),
 K('陰陽頭の部屋を調べる','h3','観察',10,'c_ok','c_ng'),
@@ -247,7 +247,7 @@ const power=()=>{const c=run.s.clues||{};let sum=0,hit=0;for(const k in c){const
 const mod=k=>save.stats[k.stat]+(k.power?power()+Math.max(0,save.stats['推理']-2):0);
 const sn=k=>k==='異能'&&run&&run.s.world&&run.s.world.special?`異能（${run.s.world.special}）`:k;
 const pct=k=>{let n=0;for(let r=1;r<=20;r++)if(ok(r,mod(k),k.dc))n++;return n*5};
-const begin=s=>{run={s,flags:{},hunch:0,link:{},seen:{}};if(s.world&&s.world.special)worldIntro(s);else go('start')};
+const begin=s=>{run={s,flags:{},hunch:0,link:{},seen:{},corder:[],horder:{}};if(s.world&&s.world.special)worldIntro(s);else go('start')};
 function worldIntro(s){
  const w=s.world;app.innerHTML='';
  const b=E('div','endbox');b.append(E('div','k','― 物語世界へ ―'),E('div','tt',w.name),E('p','',`今回は『${w.name}』の物語世界のようだ。`),E('p','',`この世界では、異能が『${w.special}』に変換されました。`),E('div','mut',`${w.special}（${hero('探偵').name}の異能 ${save.stats['異能']}）：${w.desc||''}`));
@@ -329,7 +329,7 @@ function addStory(t){
 }
 function go(id){
  const sc=run.s.scenes[id];run.cur=id;
- (sc.gain||[]).forEach(f=>run.flags[f]=Math.max(run.flags[f]||0,1));(sc.strong||[]).forEach(f=>run.flags[f]=2);
+ (sc.gain||[]).forEach(f=>run.flags[f]=Math.max(run.flags[f]||0,1));(sc.strong||[]).forEach(f=>run.flags[f]=2);[...(sc.gain||[]),...(sc.strong||[])].forEach(f=>{if((run.s.clues||{})[f]&&!run.corder.includes(f))run.corder.push(f)});
  if(sc.hunch&&!run.seen[id]){run.seen[id]=1;run.hunch+=sc.hunch}
  view(id);
 }
@@ -339,7 +339,9 @@ function view(id){
  if(!sc.ending){const hb=E('div','btnrow');if(s.clues){const b=E('button','','手帳');b.onclick=book;hb.append(b)}const w=E('button','','メニュー');w.onclick=menu;hb.append(w);app.append(hb)}
  const t=E('div','card');sc.text.split('\n').forEach(p=>{const m=p.match(/^\?(\w+)(>=|<)(\d)\|(.*)$/);if(m){const v=run.flags[m[1]]||0;if(m[2]==='>='?v<+m[3]:v>=+m[3])return;p=m[4]}t.append(line(p))});app.append(t);
  if(sc.ending)return ending(id,sc.ending);
- (sc.choices||[]).forEach(c=>{
+ let list=sc.choices||[];
+ if(sc.shuffle){const ix=list.map((c,i)=>i).filter(i=>list[i].check);if(!run.horder[id]){const a=ix.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}run.horder[id]=a}list=[...run.horder[id].map(i=>list[i]),...list.filter(c=>!c.check)]}
+ list.forEach(c=>{
   if(c.hide&&run.flags[c.hide])return;if(c.require&&!c.require.every(f=>run.flags[f]))return;
   const b=E('button','ch',c.label+(c.check?`　【${sn(c.check.stat)}判定　成功率${pct(c.check)}%】`:''));
   b.onclick=()=>c.check?roll(c):go(c.next);app.append(b)});
@@ -352,7 +354,7 @@ function rules(back){
  ['手がかり','調査で手に入ります。成功すると「確か」、失敗しても「あやふや」な手がかりが手に入ります。'],
  ['追及力','手がかりの確かさ（確か＝2、あやふや＝1の合計の半分、切り捨て）に、手帳で正しく関連づけた人物の数を足した値です（最大8）。最後の追い詰めの判定に加算され、そこでは推理の成長分もさらに加わります。'],
  ['主人公・世界観','探偵と助手は、物語ごとに違う世界を旅し、事件だけでなく、怪異や不可思議な現象、異世界の謎も解き明かします。2人の名前と画像は、タイトル画面の「主人公の名前・画像」から変えられます。'],
- ['手帳','手がかりを2つ選ぶと、証言と物証の食い違いを突き合わせられます。各手がかりに「関連」する人物を設定することもできます。'],
+ ['手帳','手がかりは入手した順に並びます。2つ選ぶと、証言と物証の食い違いを突き合わせられます。各手がかりに「関連」する人物を設定することもできます。'],
  ['成長ポイント','犯人を突き止めてクリアすると手に入ります（真相エンディングは2、通常クリアは1。エンディングごとに初回のみ）。タイトル画面でステータスに割り振れます。']].forEach(([h,t])=>{const c=E('div','card');c.append(E('strong','',h),E('p','',t));app.append(c)});
  const b=E('button','ch pri','戻る');b.onclick=back;app.append(b);
 }
@@ -406,7 +408,8 @@ function book(){
  const s=run.s,c=s.clues,S=s.suspects||[],sel=[];
  const nm=v=>v>=0?S[v]:'未設定';
  app.innerHTML='';app.append(E('h1','','手帳'),E('p','mut','2つ選んで食い違いを突き合わせられます。「関連」に人物を設定し、正しく結びつくと追及力が上がります。'));
- Object.keys(c).filter(k=>run.flags[k]).forEach(k=>{
+ const have=Object.keys(c).filter(k=>run.flags[k]);
+ run.corder.filter(k=>have.includes(k)).concat(have.filter(k=>!run.corder.includes(k))).forEach(k=>{
   const x=c[k],st=run.flags[k]>1,d=E('div','card'),cb=E('input');cb.type='checkbox';
   cb.onchange=()=>{if(cb.checked)sel.push(k);else sel.splice(sel.indexOf(k),1)};
   d.append(cb,E('strong','',` ${x.t}（${st?'確か':'あやふや'}）`),E('div','',st?x.d:(x.w||x.d)));
